@@ -45,6 +45,9 @@ namespace GenericHRLib
         public event HeartRateUpdateEventHandler HeartRateUpdated;
         public delegate void HeartRateUpdateEventHandler(HeartRateReading reading);
 
+        public event HeartRateDisconnectEventHandler HeartRateDisconnected;
+        public delegate void HeartRateDisconnectEventHandler();
+
         // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.heart_rate_measurement.xml
         private const int _hrCharacteristicId = 0x2A37;
         private static readonly Guid _hrCharacteristicUuid =
@@ -52,7 +55,7 @@ namespace GenericHRLib
 
         private GattDeviceService _service;
 
-        public void Initialize()
+        public void FindAndConnect()
         {
             var device = GetHeartRateDevice();
 
@@ -65,7 +68,7 @@ namespace GenericHRLib
             if (service == null)
                 throw new HRDeviceException($"Could not instantiate service from device '{device.Name}.");
             Debug.WriteLine($"Found service {service.Uuid}");
-
+            service.Device.ConnectionStatusChanged += ConnectionStatusListener;
             _service = service;
 
             var characteristic = CharacteristicFromService(service);
@@ -105,6 +108,12 @@ namespace GenericHRLib
                 .GetResult()
                 .Characteristics
                 .FirstOrDefault();
+
+        private void ConnectionStatusListener(BluetoothLEDevice device, object args)
+        {
+            if (device.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
+                HeartRateDisconnected.Invoke();
+        }
 
         private void CharacteristicListener(GattCharacteristic characteristic, GattValueChangedEventArgs args)
         {
