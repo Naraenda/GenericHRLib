@@ -50,10 +50,8 @@ namespace GenericHRLib
 
         // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.heart_rate_measurement.xml
         private const int _hrCharacteristicId = 0x2A37;
-        private static readonly Guid _hrCharacteristicUuid =
-            BluetoothUuidHelper.FromShortId(_hrCharacteristicId);
 
-        private GattDeviceService _service;
+        private GattDeviceService _service = null;
 
         public void FindAndConnect()
         {
@@ -68,7 +66,7 @@ namespace GenericHRLib
             if (service == null)
                 throw new HRDeviceException($"Could not instantiate service from device '{device.Name}.");
             Debug.WriteLine($"Found service {service.Uuid}");
-            service.Device.ConnectionStatusChanged += ConnectionStatusListener;
+            service.Session.SessionStatusChanged += ConnectionStatusListener;
             _service = service;
 
             var characteristic = CharacteristicFromService(service);
@@ -103,15 +101,15 @@ namespace GenericHRLib
 
         private GattCharacteristic CharacteristicFromService(GattDeviceService service)
             => service
-                .GetCharacteristicsForUuidAsync(_hrCharacteristicUuid)
+                .GetCharacteristicsForUuidAsync(BluetoothUuidHelper.FromShortId(_hrCharacteristicId))
                 .GetAwaiter()
                 .GetResult()
                 .Characteristics
                 .FirstOrDefault();
 
-        private void ConnectionStatusListener(BluetoothLEDevice device, object args)
+        private void ConnectionStatusListener(GattSession device, object args)
         {
-            if (device.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
+            if (device.SessionStatus == GattSessionStatus.Closed)
                 HeartRateDisconnected.Invoke();
         }
 
